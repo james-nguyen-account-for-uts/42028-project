@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Data (CRITICAL: DO NOT REMOVE THESE)
+data/1_raw/
+data/2_processed/
+*.npy
+*.json
+*.tar.gz
+*.mp4
+
+# Model Checkpoints
+models/*.pth
+models/*.onnx
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
