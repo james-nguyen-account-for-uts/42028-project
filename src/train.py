@@ -72,9 +72,9 @@ if __name__ == "__main__":
   # Configuration
   DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
   INPUT_DIM, ENC_EMB_DIM, DEC_EMB_DIM = 134, 256, 256
-  HID_DIM, N_LAYERS = 512, 2
-  ENC_DROPOUT, DEC_DROPOUT = 0.5, 0.5
-  LEARNING_RATE, BATCH_SIZE, N_EPOCHS, CLIP = 0.0005, 32, 20, 1
+  HID_DIM, N_LAYERS = 256, 2
+  ENC_DROPOUT, DEC_DROPOUT = 0.7, 0.7
+  LEARNING_RATE, BATCH_SIZE, N_EPOCHS, CLIP = 0.0001, 32, 20, 1
   
   # Cleaning cache for mps
   if DEVICE.type == "mps":
@@ -98,12 +98,14 @@ if __name__ == "__main__":
   ).to(DEVICE)
 
   optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-  criterion = nn.CrossEntropyLoss(ignore_index=0)
+  scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1)
+  criterion = nn.CrossEntropyLoss(ignore_index=0, label_smoothing=0.1)
 
   print(f"\n🚀 Starting Full Run on {len(train_ds)} specimens...")
   print(f"Device: {DEVICE} | Batch Size: {BATCH_SIZE} | Epochs: {N_EPOCHS}")
   
   best_val_loss = float('inf')
+  patience_counter = 0
   
   for epoch in range(N_EPOCHS):
     start_time = time.time()
@@ -112,6 +114,7 @@ if __name__ == "__main__":
     train_loss = train_one_epoch(model, train_loader, optimizer, criterion, CLIP, DEVICE)
     # Evaluate
     val_loss = evaluate(model, val_loader, criterion, DEVICE)
+    scheduler.step(val_loss)
     
     end_time = time.time()
     duration = end_time - start_time
@@ -125,6 +128,12 @@ if __name__ == "__main__":
       best_val_loss = val_loss
       torch.save(model.state_dict(), "models/checkpoints/best_sign_model.pth")
       print(f"✨ New Best Model Saved!")
+      patience_counter = 0
+    else:
+      patience_counter += 1
+      if patience_counter >= 5:
+          print("Early stopping triggered. Model is overfitting.")
+          break
     
     # Optional: Save a "Last" checkpoint regardless of performance
     torch.save(model.state_dict(), "models/checkpoints/last_model_checkpoint.pth")
