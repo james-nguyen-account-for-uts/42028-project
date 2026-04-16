@@ -2,7 +2,6 @@ import os
 import json
 import re
 import pandas as pd
-from src.step1_preprocess.config import VOCAB_PATH
 
 
 class SignVocab:
@@ -92,7 +91,7 @@ if __name__ == "__main__":
   vocab.build_vocabulary(csv_files)
 
   os.makedirs("models", exist_ok=True)
-  vocab.save(VOCAB_PATH)
+  vocab.save("models/vocab.json")
 
   sample = "That's good."
   encoded = vocab.numericalize(sample)
