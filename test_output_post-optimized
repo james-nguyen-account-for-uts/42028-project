@@ -1,0 +1,49 @@
+Running on 30995 specimens...
+  Batch 485/485 | Loss: 5.9889 | LR: 0.000500 | TF: 0.80
+Epoch: 01 | Time: 190.24s | Train: 6.5117 | Val: 6.8568 | 
+Best model saved.
+  Batch 485/485 | Loss: 5.7965 | LR: 0.000500 | TF: 0.80
+Epoch: 02 | Time: 185.75s | Train: 6.0068 | Val: 6.9033 | 
+  Batch 485/485 | Loss: 5.9836 | LR: 0.000500 | TF: 0.80
+Epoch: 03 | Time: 189.01s | Train: 5.8245 | Val: 7.0594 | 
+  Batch 485/485 | Loss: 6.0210 | LR: 0.000500 | TF: 0.80
+Epoch: 04 | Time: 188.38s | Train: 5.7127 | Val: 7.2565 | 
+  Batch 485/485 | Loss: 5.2808 | LR: 0.000500 | TF: 0.80
+Epoch: 05 | Time: 188.33s | Train: 5.6243 | Val: 7.1662 | 
+
+[Validation Sample Translation]
+  Target: we're going to work on a arm drill that will help you have graceful hand movements in front of you
+  Pred:   so you want to make sure that you have a little of the
+
+  Batch 485/485 | Loss: 5.6831 | LR: 0.000500 | TF: 0.80
+Epoch: 06 | Time: 190.31s | Train: 5.5607 | Val: 6.8967 | 
+  Batch 485/485 | Loss: 5.4800 | LR: 0.000250 | TF: 0.75
+Epoch: 07 | Time: 188.47s | Train: 5.5218 | Val: 6.9755 | 
+  Batch 485/485 | Loss: 5.2559 | LR: 0.000250 | TF: 0.70
+Epoch: 08 | Time: 185.99s | Train: 5.5632 | Val: 6.9189 | 
+  Batch 485/485 | Loss: 5.4551 | LR: 0.000250 | TF: 0.65
+Epoch: 09 | Time: 186.37s | Train: 5.6139 | Val: 6.7705 | 
+Best model saved.
+  Batch 485/485 | Loss: 5.7113 | LR: 0.000250 | TF: 0.60
+Epoch: 10 | Time: 186.47s | Train: 5.6667 | Val: 6.7287 | 
+
+[Validation Sample Translation]
+  Target: we're going to work on a arm drill that will help you have graceful hand movements in front of you
+  Pred:   so you want to to to to to to to to to to to to the
+
+Best model saved.
+  Batch 485/485 | Loss: 5.9204 | LR: 0.000250 | TF: 0.55
+Epoch: 11 | Time: 189.67s | Train: 5.7254 | Val: 6.6318 | 
+Best model saved.
+  Batch 485/485 | Loss: 5.5892 | LR: 0.000250 | TF: 0.50
+Epoch: 12 | Time: 186.87s | Train: 5.7939 | Val: 6.6515 | 
+  Batch 485/485 | Loss: 5.7527 | LR: 0.000250 | TF: 0.45
+Epoch: 13 | Time: 186.23s | Train: 5.8337 | Val: 6.6376 | 
+  Batch 485/485 | Loss: 6.0271 | LR: 0.000250 | TF: 0.40
+Epoch: 14 | Time: 182.03s | Train: 5.9056 | Val: 6.6968 | 
+  Batch 485/485 | Loss: 5.9859 | LR: 0.000250 | TF: 0.40
+Epoch: 15 | Time: 187.61s | Train: 5.9089 | Val: 6.6322 | 
+
+[Validation Sample Translation]
+  Target: we're going to work on a arm drill that will help you have graceful hand movements in front of you
+  Pred:   so you to to to the the

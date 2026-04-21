@@ -17,6 +17,7 @@ data/2_processed/
 models/checkpoints/*.pth
 models/*.pth
 models/vocab.json
+training_logs/
 
 # Dataset & Processed Files
 data/0_metadata/*.csv

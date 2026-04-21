@@ -1,5 +1,6 @@
 # --- FILE PATHS ---
 VOCAB_PATH = "models/vocab.json"
+RUNS_DIR = "training_logs"
 
 # --- TRAINING CONFIG ---
 INPUT_DIM = 134
@@ -14,3 +15,5 @@ WEIGHT_DECAY = 1e-5
 BATCH_SIZE = 64
 N_EPOCHS = 50
 CLIP = 1.0
+VAL_SUBSET_SIZE = 200
+DEFAULT_ENCODER_ARCH = "bilstm"

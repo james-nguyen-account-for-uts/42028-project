@@ -3,7 +3,7 @@ import numpy as np
 from glob import glob
 from scipy.interpolate import interp1d
 from tqdm import tqdm
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 
 from config import HAND_POINTS, POSE_POINTS, TARGET_FRAMES, FILE_PATHS
 from utils import extract_xy_conf, interpolate_nan, resample_sequence, normalize_frames
@@ -76,6 +76,24 @@ def worker(sentence_folder_name, root_dir, output_dir):
   return 0
 
 
+def _run_with_executor(executor_cls, sentences, root_dir, output_dir, max_workers):
+  total_frames = 0
+  with executor_cls(max_workers=max_workers) as executor:
+    futures = [
+      executor.submit(worker, s, root_dir, output_dir) for s in sentences
+    ]
+    for f in tqdm(as_completed(futures), total=len(futures)):
+      total_frames += f.result()
+  return total_frames
+
+
+def _run_sequential(sentences, root_dir, output_dir):
+  total_frames = 0
+  for sentence in tqdm(sentences):
+    total_frames += worker(sentence, root_dir, output_dir)
+  return total_frames
+
+
 # --- MAIN RUNNER ---
 def preprocess_dataset(root_dir, output_dir, num_workers=4):
   os.makedirs(output_dir, exist_ok=True)
@@ -86,14 +104,25 @@ def preprocess_dataset(root_dir, output_dir, num_workers=4):
   ]
   print(f"Found {len(sentences)} folders to process...")
 
-  total_frames = 0
-  # ProcessPoolExecutor runs multiple folders at once using all CPU cores
-  with ProcessPoolExecutor(max_workers=num_workers) as executor:
-    futures = [
-      executor.submit(worker, s, root_dir, output_dir) for s in sentences
-    ]
-    for f in tqdm(as_completed(futures), total=len(futures)):
-      total_frames += f.result()
+  if num_workers <= 1:
+    total_frames = _run_sequential(sentences, root_dir, output_dir)
+  else:
+    try:
+      # ProcessPoolExecutor runs multiple folders at once using all CPU cores.
+      total_frames = _run_with_executor(
+        ProcessPoolExecutor, sentences, root_dir, output_dir, num_workers)
+    except (PermissionError, OSError) as e:
+      print(
+        f"[WARN] ProcessPoolExecutor unavailable ({e}). Falling back to threads."
+      )
+      try:
+        total_frames = _run_with_executor(
+          ThreadPoolExecutor, sentences, root_dir, output_dir, num_workers)
+      except Exception as thread_error:
+        print(
+          f"[WARN] ThreadPoolExecutor failed ({thread_error}). Falling back to sequential mode."
+        )
+        total_frames = _run_sequential(sentences, root_dir, output_dir)
 
   print(
     f"\n[SUCCESS] Processed {len(sentences)} videos into {total_frames} total frames."

@@ -5,22 +5,39 @@ import torch.nn as nn
 
 class Encoder(nn.Module):
 
-  def __init__(self, input_dim, emb_dim, hid_dim, n_layers, dropout):
+  def __init__(
+      self,
+      input_dim,
+      emb_dim,
+      hid_dim,
+      n_layers,
+      dropout,
+      bidirectional=True):
     super().__init__()
     self.hid_dim = hid_dim
     self.n_layers = n_layers
+    self.bidirectional = bidirectional
+    self.num_directions = 2 if bidirectional else 1
 
     self.embedding = nn.Sequential(
       nn.Linear(input_dim, emb_dim), nn.LayerNorm(emb_dim), nn.ReLU(),
       nn.Dropout(dropout), nn.Linear(emb_dim, emb_dim), nn.LayerNorm(emb_dim))
 
     self.rnn = nn.LSTM(
-      emb_dim, hid_dim, n_layers, dropout=dropout, bidirectional=True)
+      emb_dim,
+      hid_dim,
+      n_layers,
+      dropout=dropout,
+      bidirectional=bidirectional)
     self.dropout = nn.Dropout(dropout)
 
-    # Projection to collapse [n_layers*2, batch, hid_dim] -> [n_layers, batch, hid_dim]
-    self.fc_hidden = nn.Linear(hid_dim * 2, hid_dim)
-    self.fc_cell = nn.Linear(hid_dim * 2, hid_dim)
+    if bidirectional:
+      # Projection to collapse [n_layers*2, batch, hid_dim] -> [n_layers, batch, hid_dim]
+      self.fc_hidden = nn.Linear(hid_dim * 2, hid_dim)
+      self.fc_cell = nn.Linear(hid_dim * 2, hid_dim)
+    else:
+      self.fc_hidden = None
+      self.fc_cell = None
 
   def forward(self, src):
     # src: [batch, seq, input_dim]
@@ -29,22 +46,23 @@ class Encoder(nn.Module):
 
     outputs, (hidden, cell) = self.rnn(embedded)
 
+    if not self.bidirectional:
+      return outputs, (hidden, cell)
+
     # hidden is [n_layers * 2, batch, hid_dim]
     # Reshape to [n_layers, 2, batch, hid_dim] then concat the directions
     batch_size = src.shape[0]
 
-    #
     # Reshape to [n_layers, 2, batch, hid_dim]
-    # index 0 is Forward, index 1 is Backward
+    # index 0 is forward, index 1 is backward
     hidden = hidden.view(self.n_layers, 2, batch_size, self.hid_dim)
     cell = cell.view(self.n_layers, 2, batch_size, self.hid_dim)
 
-    # Concatenate the two directions on the LAST dimension (dim=3)
-    # result: [n_layers, batch, hid_dim * 2]
+    # Concatenate the two directions on the last dimension.
     h_cat = torch.cat((hidden[:, 0, :, :], hidden[:, 1, :, :]), dim=2)
     c_cat = torch.cat((cell[:, 0, :, :], cell[:, 1, :, :]), dim=2)
 
-    # Project back to [n_layers, batch, hid_dim]
+    # Project back to [n_layers, batch, hid_dim].
     new_hidden = torch.tanh(self.fc_hidden(h_cat))
     new_cell = torch.tanh(self.fc_cell(c_cat))
 
