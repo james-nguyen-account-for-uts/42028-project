@@ -119,7 +119,8 @@ def run_training():
     shuffle=True,
     collate_fn=sign_language_collate)
 
-  val_subset = Subset(val_ds, list(range(200)))
+  val_count = min(200, len(val_ds))
+  val_subset = Subset(val_ds, list(range(val_count)))
   val_loader = DataLoader(
     val_subset,
     batch_size=BATCH_SIZE,

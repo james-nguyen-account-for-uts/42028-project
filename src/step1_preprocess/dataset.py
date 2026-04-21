@@ -49,30 +49,37 @@ class SignLanguageDataset(Dataset):
 
 def sign_language_collate(batch):
   """
-  Handles normalization to [0,1] and sequence padding.
-  Fixed: Uses [1280, 720] pattern to match (x, y) feature pairs.
+  Pads already-processed skeleton sequences.
+
+  The training pipeline loads data from data/2_processed, where coordinates have
+  already been normalized around the signer. We therefore leave the values
+  untouched unless they still look like raw pixel coordinates from an older
+  preprocessing path.
   """
   src_list, trg_list = [], []
-  norm_pattern = torch.tensor([1280.0, 720.0])
 
   for src, trg in batch:
-    # Step 1: Normalization (If raw pixel values)
-    if src.max() > 1.0:
-      # repeat_count = 134 // 2 = 67 pairs of (x,y)
+    finite_src = torch.nan_to_num(src, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # Older experiments may have saved pixel-space coordinates directly.
+    # Use a robust magnitude check so normalized samples with a few outliers are
+    # not incorrectly rescaled a second time.
+    if finite_src.abs().median() > 10.0 and finite_src.abs().max() > 100.0:
       repeat_count = src.shape[1] // 2
-      norm_vec = norm_pattern.repeat(repeat_count)
+      norm_vec = torch.tensor([1280.0, 720.0], dtype=src.dtype).repeat(
+        repeat_count)
       src = src / norm_vec
 
     src_list.append(src)
     trg_list.append(trg)
 
-  # Step 2: Padding
+  # Step 1: Padding
   # src_padded: [Batch, Max_Time, 134]
   src_padded = pad_sequence(src_list, batch_first=True, padding_value=0.0)
   # trg_padded: [Batch, Max_Words]
   trg_padded = pad_sequence(trg_list, batch_first=True, padding_value=0)
 
-  # Step 3: Lengths (Crucial for PackedSequences to lower val_loss)
+  # Step 2: Lengths
   src_lens = torch.LongTensor([len(x) for x in src_list])
   trg_lens = torch.LongTensor([len(x) for x in trg_list])
 
