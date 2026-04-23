@@ -22,10 +22,10 @@ PERFORMANCE_PLOT_PATH = os.path.join(MODEL_DIR, 'training_performance.png')
 # ==========================================
 # MODEL HYPERPARAMETERS
 # ==========================================
-SEQUENCE_LENGTH = 30  # Number of frames per "specimen" (video)
+SEQUENCE_LENGTH = 45  # Number of frames per "specimen" (video)
 LANDMARK_FEATURES = 126  # 21 points * 3 (xyz) * 2 hands
-HIDDEN_SIZE = 256
-NUM_LAYERS = 3
+HIDDEN_SIZE = 128
+NUM_LAYERS = 2
 DROPOUT = 0.7
 
 # ==========================================

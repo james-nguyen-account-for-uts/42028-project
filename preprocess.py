@@ -62,7 +62,7 @@ def main():
   # ==========================================
   # 1. DYNAMIC DATA MINING (Forcing Yes/No)
   # ==========================================
-  REQUIRED_WORDS = ['yes', 'no']
+  REQUIRED_WORDS = ['yes', 'no', 'hello']
   other_word_counts = []
   required_entries = []
 
@@ -93,7 +93,7 @@ def main():
 
   # Sort the pool by popularity and take the top 8 to fill the 10-word limit
   other_word_counts.sort(key=lambda x: x['count'], reverse=True)
-  target_entries = required_entries + other_word_counts[:8]
+  target_entries = required_entries + other_word_counts[:7]
 
   # Sort alphabetically so the indexes stay consistent
   target_entries.sort(key=lambda x: x['gloss'])
