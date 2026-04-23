@@ -5,9 +5,8 @@ __pycache__/
 venv/
 .env
 
-# Data (CRITICAL: DO NOT REMOVE THESE)
-data/1_raw/
-data/2_processed/
+# Data
+data
 *.npy
 *.json
 *.tar.gz
@@ -27,3 +26,6 @@ data/2_processed/
 .vscode/
 .idea/
 .DS_Store
+
+
+/0_test
