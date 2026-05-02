@@ -18,6 +18,7 @@ CLASS_LIST_PATH = os.path.join(PROCESSED_DATA_DIR, 'wlasl_class_list.npy')
 MODEL_DIR = 'models'
 MODEL_SAVE_PATH = os.path.join(MODEL_DIR, 'wlasl_lstm.pth')
 PERFORMANCE_PLOT_PATH = os.path.join(MODEL_DIR, 'training_performance.png')
+HAND_LANDMARKER_TASK_PATH = os.path.join(MODEL_DIR, 'hand_landmarker.task')
 
 # ==========================================
 # MODEL HYPERPARAMETERS
@@ -31,7 +32,10 @@ DROPOUT = 0.7
 # ==========================================
 # TRAINING SETTINGS
 # ==========================================
-DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+DEVICE = torch.device(
+  "cuda" if torch.cuda.is_available()
+  else "mps" if torch.backends.mps.is_available()
+  else "cpu")
 BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 EPOCHS = 100

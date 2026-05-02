@@ -5,12 +5,13 @@ import numpy as np
 import mediapipe as mp
 from collections import deque
 import os
+import config
 
 # Settings match train.py
-DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-SEQUENCE_LENGTH = 30
-MODEL_PATH = 'models/wlasl_lstm.pth'
-CLASS_LIST_PATH = 'data/2_processed/wlasl_class_list.npy'
+DEVICE = config.DEVICE
+SEQUENCE_LENGTH = config.SEQUENCE_LENGTH
+MODEL_PATH = config.MODEL_SAVE_PATH
+CLASS_LIST_PATH = config.CLASS_LIST_PATH
 
 # Load Classes
 try:
@@ -26,14 +27,15 @@ class ASLWordLSTM(nn.Module):
   def __init__(self, num_classes):
     super(ASLWordLSTM, self).__init__()
     self.lstm = nn.LSTM(
-      input_size=126,
-      hidden_size=256,
-      num_layers=3,
+      input_size=config.LANDMARK_FEATURES,
+      hidden_size=config.HIDDEN_SIZE,
+      num_layers=config.NUM_LAYERS,
       batch_first=True,
       bidirectional=True,
-      dropout=0.5)
+      dropout=config.DROPOUT)
     self.fc = nn.Sequential(
-      nn.Linear(256 * 2, 128), nn.ReLU(), nn.Dropout(0.5),
+      nn.Linear(config.HIDDEN_SIZE * 2, 128), nn.ReLU(),
+      nn.Dropout(config.DROPOUT),
       nn.Linear(128, num_classes))
 
   def forward(self, x):
@@ -42,19 +44,44 @@ class ASLWordLSTM(nn.Module):
     return self.fc(last_step)
 
 
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(
-  min_detection_confidence=0.7, min_tracking_confidence=0.5)
+if hasattr(mp, 'solutions'):
+  mp_hands = mp.solutions.hands
+  hands = mp_hands.Hands(
+    min_detection_confidence=0.7, min_tracking_confidence=0.5)
+  USE_TASKS_API = False
+else:
+  from mediapipe.tasks import python
+  from mediapipe.tasks.python import vision
+
+  if not os.path.exists(config.HAND_LANDMARKER_TASK_PATH):
+    raise FileNotFoundError(
+      f"Missing MediaPipe task model: {config.HAND_LANDMARKER_TASK_PATH}")
+  options = vision.HandLandmarkerOptions(
+    base_options=python.BaseOptions(
+      model_asset_path=os.path.abspath(config.HAND_LANDMARKER_TASK_PATH)),
+    num_hands=2,
+    min_hand_detection_confidence=0.7,
+    min_tracking_confidence=0.5)
+  hands = vision.HandLandmarker.create_from_options(options)
+  USE_TASKS_API = True
 
 
 def extract_landmarks(frame):
-  results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-  frame_lms = np.zeros(126)
-  if results.multi_hand_landmarks:
-    for i, hand_lms in enumerate(results.multi_hand_landmarks):
+  img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+  if USE_TASKS_API:
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+    results = hands.detect(mp_image)
+    detected_hands = results.hand_landmarks
+  else:
+    results = hands.process(img_rgb)
+    detected_hands = results.multi_hand_landmarks
+
+  frame_lms = np.zeros(config.LANDMARK_FEATURES)
+  if detected_hands:
+    for i, hand_lms in enumerate(detected_hands):
       if i > 1: break
-      points = np.array([[lm.x, lm.y, lm.z]
-                         for lm in hand_lms.landmark]).flatten()
+      landmarks = hand_lms if USE_TASKS_API else hand_lms.landmark
+      points = np.array([[lm.x, lm.y, lm.z] for lm in landmarks]).flatten()
       frame_lms[i * 63:i * 63 + len(points)] = points
   return frame_lms
 
