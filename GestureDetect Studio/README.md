@@ -1,7 +1,5 @@
 # GestureDetect Studio
 
-Tkinter desktop GUI for the WLASL gesture recognition demo.
-
 ## Run
 
 From the project root:
