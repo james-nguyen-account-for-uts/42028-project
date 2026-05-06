@@ -32,9 +32,9 @@ DROPOUT = 0.7
 # TRAINING SETTINGS
 # ==========================================
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-BATCH_SIZE = 32
-LEARNING_RATE = 0.001
-EPOCHS = 100
+BATCH_SIZE = 16
+LEARNING_RATE = 0.0005
+EPOCHS = 200
 MIN_SAMPLES_PER_WORD = 10  # Filter out words with fewer than this many videos
 
 
