@@ -8,9 +8,25 @@ import config  # Import our central config file
 # ==========================================
 # INITIALIZE MEDIAPIPE
 # ==========================================
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(
-  static_image_mode=True, max_num_hands=2, min_detection_confidence=0.5)
+if hasattr(mp, 'solutions'):
+  mp_hands = mp.solutions.hands
+  hands = mp_hands.Hands(
+    static_image_mode=True, max_num_hands=2, min_detection_confidence=0.5)
+  USE_TASKS_API = False
+else:
+  from mediapipe.tasks import python
+  from mediapipe.tasks.python import vision
+
+  if not os.path.exists(config.HAND_LANDMARKER_TASK_PATH):
+    raise FileNotFoundError(
+      f"Missing MediaPipe task model: {config.HAND_LANDMARKER_TASK_PATH}")
+  options = vision.HandLandmarkerOptions(
+    base_options=python.BaseOptions(
+      model_asset_path=os.path.abspath(config.HAND_LANDMARKER_TASK_PATH)),
+    num_hands=2,
+    min_hand_detection_confidence=0.5)
+  hands = vision.HandLandmarker.create_from_options(options)
+  USE_TASKS_API = True
 
 
 def extract_landmarks(video_path):
@@ -22,15 +38,21 @@ def extract_landmarks(video_path):
     if not ret: break
 
     img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(img_rgb)
+    if USE_TASKS_API:
+      mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+      results = hands.detect(mp_image)
+      detected_hands = results.hand_landmarks
+    else:
+      results = hands.process(img_rgb)
+      detected_hands = results.multi_hand_landmarks
 
     frame_lms = np.zeros(config.LANDMARK_FEATURES)
 
-    if results.multi_hand_landmarks:
-      for i, hand_lms in enumerate(results.multi_hand_landmarks):
+    if detected_hands:
+      for i, hand_lms in enumerate(detected_hands):
         if i > 1: break
-        points = np.array([[lm.x, lm.y, lm.z]
-                           for lm in hand_lms.landmark]).flatten()
+        landmarks = hand_lms if USE_TASKS_API else hand_lms.landmark
+        points = np.array([[lm.x, lm.y, lm.z] for lm in landmarks]).flatten()
         start_idx = i * 63
         frame_lms[start_idx:start_idx + len(points)] = points
 
