@@ -10,7 +10,7 @@ from PIL import Image, ImageTk
 from tkinter import messagebox, ttk
 
 from Camera import CameraController, Prediction
-from model import load_classes, load_model
+from model import ModelInfo, discover_models, load_classes, load_model
 
 import config
 
@@ -24,8 +24,20 @@ class GestureDetectStudio(tk.Tk):
     self.minsize(1040, 760)
 
     self.device = config.DEVICE
-    self.classes = load_classes()
-    self.model = load_model(self.classes, self.device)
+    self.available_models = discover_models()
+    self.model_by_name = {
+      info.display_name: info for info in self.available_models
+    }
+    self.active_model_info: Optional[ModelInfo] = (
+      self.available_models[0] if self.available_models else None)
+    self.model_var = tk.StringVar(
+      value=(self.active_model_info.display_name
+             if self.active_model_info else "No trained model"))
+    self.classes = load_classes(self.active_model_info)
+    self.model = load_model(
+      self.classes,
+      self.device,
+      self.active_model_info)
     self.camera: Optional[CameraController] = None
 
     self.running = False
@@ -68,11 +80,29 @@ class GestureDetectStudio(tk.Tk):
     header.pack(fill=tk.X)
     ttk.Label(header, text="GestureDetect Studio",
               style="Title.TLabel").pack(side=tk.LEFT)
+
+    header_right = ttk.Frame(header)
+    header_right.pack(side=tk.RIGHT, fill=tk.X)
+    selector_row = ttk.Frame(header_right)
+    selector_row.pack(anchor=tk.E)
+    ttk.Label(
+      selector_row,
+      text="Model",
+      style="Muted.TLabel").pack(side=tk.LEFT, padx=(0, 6))
+    self.model_selector = ttk.Combobox(
+      selector_row,
+      textvariable=self.model_var,
+      values=[info.display_name for info in self.available_models],
+      state=("readonly" if self.available_models else "disabled"),
+      width=22)
+    self.model_selector.pack(side=tk.LEFT)
+    self.model_selector.bind("<<ComboboxSelected>>", self.on_model_selected)
+
     self.status_label = ttk.Label(
-      header,
+      header_right,
       text=f"Idle | device: {self.device}",
       style="Muted.TLabel")
-    self.status_label.pack(side=tk.RIGHT, pady=(8, 0))
+    self.status_label.pack(anchor=tk.E, pady=(4, 0))
 
     content = ttk.Frame(root)
     content.pack(fill=tk.BOTH, expand=True, pady=(18, 0))
@@ -244,11 +274,14 @@ class GestureDetectStudio(tk.Tk):
     self.model_status_label.configure(wraplength=wraplength)
 
   def _model_status_text(self) -> str:
+    model_name = (
+      self.active_model_info.display_name
+      if self.active_model_info else "No model")
     if not self.classes:
-      return "Classes not found. Run preprocess.py first."
+      return f"{model_name}: classes not found. Run preprocessing first."
     if self.model is None:
-      return "Model not found. Run train.py first."
-    return f"Model ready: {len(self.classes)} classes"
+      return f"{model_name}: model not found. Run training first."
+    return f"{model_name}: Landmark v2 ready ({len(self.classes)} classes)"
 
   def _set_current_word(self, word: str) -> None:
     max_width = self.current_word_label.winfo_width()
@@ -290,8 +323,41 @@ class GestureDetectStudio(tk.Tk):
     self.stop_button.configure(state=tk.NORMAL)
     self.status_label.configure(text=f"Camera running | device: {self.device}")
     self.last_output_label.configure(
-      text=f"Warming up: 0/{config.SEQUENCE_LENGTH} frames")
+      text=f"Warming up: 0/{config.LANDMARK_V2_SEQUENCE_LENGTH} frames")
     self.after(0, self._update_frame)
+
+  def on_model_selected(self, _event=None) -> None:
+    selected_name = self.model_var.get()
+    selected_info = self.model_by_name.get(selected_name)
+    if selected_info is None or selected_info == self.active_model_info:
+      return
+
+    if self.running:
+      self.stop_camera()
+
+    try:
+      classes = load_classes(selected_info)
+      model = load_model(classes, self.device, selected_info)
+    except Exception as exc:
+      messagebox.showerror("Model load error", str(exc))
+      if self.active_model_info is not None:
+        self.model_var.set(self.active_model_info.display_name)
+      return
+
+    if not classes or model is None:
+      messagebox.showwarning(
+        "Model unavailable",
+        f"Could not load {selected_info.display_name}.")
+      if self.active_model_info is not None:
+        self.model_var.set(self.active_model_info.display_name)
+      return
+
+    self.active_model_info = selected_info
+    self.classes = classes
+    self.model = model
+    self.clear_subtitles()
+    self.model_status_label.configure(text=self._model_status_text())
+    self.status_label.configure(text=f"Idle | device: {self.device}")
 
   def stop_camera(self) -> None:
     self.running = False
@@ -322,9 +388,9 @@ class GestureDetectStudio(tk.Tk):
     prediction = self.camera.process_frame(frame)
     if prediction is not None:
       self._show_prediction(prediction)
-    elif len(self.camera.sequence_buffer) < config.SEQUENCE_LENGTH:
+    elif len(self.camera.sequence_buffer) < self.camera.sequence_length:
       self.last_output_label.configure(
-        text=f"Warming up: {len(self.camera.sequence_buffer)}/{config.SEQUENCE_LENGTH} frames")
+        text=f"Warming up: {len(self.camera.sequence_buffer)}/{self.camera.sequence_length} frames")
 
     self._render_video(frame)
     self.after(15, self._update_frame)
@@ -336,8 +402,12 @@ class GestureDetectStudio(tk.Tk):
 
     if prediction.emitted:
       self.words.append(prediction.word)
-      self.last_output_label.configure(
-        text=f"{prediction.word.upper()} at {prediction.confidence:.0%} confidence")
+      if prediction.status == "emitted_stable":
+        self.last_output_label.configure(
+          text=f"{prediction.word.upper()} after stable match at {prediction.confidence:.0%}")
+      else:
+        self.last_output_label.configure(
+          text=f"{prediction.word.upper()} at {prediction.confidence:.0%} confidence")
       self.word_count_label.configure(text=f"Words: {len(self.words)}")
       self._refresh_subtitle_text()
     elif prediction.status == "low_confidence":
@@ -346,6 +416,17 @@ class GestureDetectStudio(tk.Tk):
     elif prediction.status == "cooldown":
       self.last_output_label.configure(
         text=f"Holding: {prediction.word.upper()} at {prediction.confidence:.0%}")
+    elif prediction.status == "ambiguous":
+      self.last_output_label.configure(
+        text=f"Waiting: {prediction.word.upper()} not distinct enough")
+    elif prediction.status == "stabilizing":
+      self.last_output_label.configure(
+        text=f"Checking: {prediction.word.upper()} at {prediction.confidence:.0%}")
+    elif prediction.status == "stabilizing_low_confidence":
+      self.last_output_label.configure(
+        text=f"Checking stable: {prediction.word.upper()} at {prediction.confidence:.0%}")
+    elif prediction.status == "no_hand":
+      self.last_output_label.configure(text="Waiting: no hand landmarks")
 
   def _refresh_subtitle_text(self) -> None:
     self.subtitle_text.configure(state=tk.NORMAL)
@@ -362,6 +443,7 @@ class GestureDetectStudio(tk.Tk):
     self._refresh_subtitle_text()
 
   def _render_video(self, frame) -> None:
+    frame = cv2.flip(frame, 1)
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     image = Image.fromarray(rgb_frame)
 
