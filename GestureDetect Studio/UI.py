@@ -346,6 +346,8 @@ class GestureDetectStudio(tk.Tk):
     elif prediction.status == "cooldown":
       self.last_output_label.configure(
         text=f"Holding: {prediction.word.upper()} at {prediction.confidence:.0%}")
+    elif prediction.status == "no_hand":
+      self.last_output_label.configure(text="Waiting: no hands detected")
 
   def _refresh_subtitle_text(self) -> None:
     self.subtitle_text.configure(state=tk.NORMAL)

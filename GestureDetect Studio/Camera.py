@@ -48,7 +48,7 @@ class HandLandmarkExtractor:
         min_detection_confidence=0.7,
         min_tracking_confidence=0.5)
 
-  def extract(self, frame: np.ndarray) -> np.ndarray:
+  def extract(self, frame: np.ndarray) -> tuple[np.ndarray, bool]:
     img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     if self.use_tasks_api:
       mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
@@ -59,15 +59,17 @@ class HandLandmarkExtractor:
       detected_hands = results.multi_hand_landmarks
 
     frame_lms = np.zeros(config.LANDMARK_FEATURES)
-    if detected_hands:
-      for i, hand_lms in enumerate(detected_hands):
-        if i > 1:
-          break
-        landmarks = hand_lms if self.use_tasks_api else hand_lms.landmark
-        points = np.array([[lm.x, lm.y, lm.z] for lm in landmarks]).flatten()
-        start_idx = i * 63
-        frame_lms[start_idx:start_idx + len(points)] = points
-    return frame_lms
+    if not detected_hands:
+      return frame_lms, False
+
+    for i, hand_lms in enumerate(detected_hands):
+      if i > 1:
+        break
+      landmarks = hand_lms if self.use_tasks_api else hand_lms.landmark
+      points = np.array([[lm.x, lm.y, lm.z] for lm in landmarks]).flatten()
+      start_idx = i * 63
+      frame_lms[start_idx:start_idx + len(points)] = points
+    return frame_lms, True
 
   def close(self) -> None:
     close = getattr(self.hands, "close", None)
@@ -78,6 +80,7 @@ class HandLandmarkExtractor:
 class CameraController:
   CONFIDENCE_THRESHOLD = 0.5
   PREDICT_EVERY_FRAMES = 4
+  WORD_COOLDOWN_SECONDS = 1.2
   REPEAT_COOLDOWN_SECONDS = 2.0
 
   def __init__(self, model, classes: list[str], device: torch.device):
@@ -117,7 +120,16 @@ class CameraController:
     return cv2.flip(frame, 1)
 
   def process_frame(self, frame: np.ndarray) -> Optional[Prediction]:
-    landmarks = self.extractor.extract(frame)
+    landmarks, valid = self.extractor.extract(frame)
+    if not valid:
+      self.sequence_buffer.clear()
+      self.frame_count = 0
+      return Prediction(
+        word="--",
+        confidence=0.0,
+        emitted=False,
+        status="no_hand")
+
     self.sequence_buffer.append(landmarks)
     self.frame_count += 1
 
@@ -147,6 +159,10 @@ class CameraController:
       return False, "low_confidence"
 
     now = time.time()
+    word_too_soon = now - self.last_output_at < self.WORD_COOLDOWN_SECONDS
+    if word_too_soon:
+      return False, "cooldown"
+
     repeated_too_soon = (
       word == self.last_output_word and
       now - self.last_output_at < self.REPEAT_COOLDOWN_SECONDS)

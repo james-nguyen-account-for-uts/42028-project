@@ -23,7 +23,7 @@ HAND_LANDMARKER_TASK_PATH = os.path.join(MODEL_DIR, 'hand_landmarker.task')
 # ==========================================
 # MODEL HYPERPARAMETERS
 # ==========================================
-SEQUENCE_LENGTH = 45  # Number of frames per "specimen" (video)
+SEQUENCE_LENGTH = 15  # Number of frames per "specimen" (video)
 LANDMARK_FEATURES = 126  # 21 points * 3 (xyz) * 2 hands
 HIDDEN_SIZE = 128
 NUM_LAYERS = 2
