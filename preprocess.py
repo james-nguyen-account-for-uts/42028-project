@@ -125,7 +125,7 @@ def main():
 
   # Save class list
   np.save(config.CLASS_LIST_PATH, np.array(all_glosses))
-  print(f"📊 Final 10 words (Forced Yes/No + Top 8 Data-Rich):")
+  print(f"📊 Final 10 words (Forced Hello/Yes/No + Top 7 Data-Rich):")
   for e in target_entries:
     print(f"   - {e['gloss']}: {e['count']} videos found")
 
