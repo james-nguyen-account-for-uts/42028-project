@@ -82,43 +82,34 @@ def main():
     dataset_json = json.load(f)
 
   # ==========================================
-  # 1. DYNAMIC DATA MINING (Forcing Yes/No)
+  # 1. FIXED CLASS SET
   # ==========================================
-  REQUIRED_WORDS = ['yes', 'no', 'hello']
-  other_word_counts = []
-  required_entries = []
+  target_words = list(config.LANDMARK_V2_DEFAULT_CLASSES)
+  target_word_set = set(target_words)
+  target_entries_by_gloss = {}
 
   for entry in dataset_json:
     gloss = entry['gloss']
-    # Count how many of this word's instances actually exist in your folder
+    if gloss not in target_word_set:
+      continue
+
     existing_instances = [
       inst for inst in entry['instances'] if os.path.exists(
         os.path.join(config.RAW_VIDEO_DIR, f"{inst['video_id']}.mp4"))
     ]
+    target_entries_by_gloss[gloss] = {
+      'gloss': gloss,
+      'count': len(existing_instances),
+      'instances': existing_instances
+    }
 
-    # If it's Yes or No, we save it immediately
-    if gloss in REQUIRED_WORDS:
-      required_entries.append(
-        {
-          'gloss': gloss,
-          'count': len(existing_instances),
-          'instances': existing_instances
-        })
-    # Otherwise, we put it in the pool for the top 8
-    elif len(existing_instances) >= 10:
-      other_word_counts.append(
-        {
-          'gloss': gloss,
-          'count': len(existing_instances),
-          'instances': existing_instances
-        })
+  missing_words = [
+    word for word in target_words if word not in target_entries_by_gloss
+  ]
+  if missing_words:
+    raise ValueError(f"Missing requested words in WLASL metadata: {missing_words}")
 
-  # Sort the pool by popularity and take the top 8 to fill the 10-word limit
-  other_word_counts.sort(key=lambda x: x['count'], reverse=True)
-  target_entries = required_entries + other_word_counts[:7]
-
-  # Sort alphabetically so the indexes stay consistent
-  target_entries.sort(key=lambda x: x['gloss'])
+  target_entries = [target_entries_by_gloss[word] for word in target_words]
 
   all_glosses = [e['gloss'] for e in target_entries]
   word_to_int = {word: i for i, word in enumerate(all_glosses)}

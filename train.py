@@ -160,7 +160,7 @@ def train():
   plt.tight_layout()
   plt.savefig(config.PERFORMANCE_PLOT_PATH)
   print(f"📊 Performance plot saved to {config.PERFORMANCE_PLOT_PATH}")
-  plt.show()
+  plt.close()
 
 
 if __name__ == "__main__":
