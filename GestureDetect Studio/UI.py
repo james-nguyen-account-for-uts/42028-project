@@ -281,7 +281,10 @@ class GestureDetectStudio(tk.Tk):
       return f"{model_name}: classes not found. Run preprocessing first."
     if self.model is None:
       return f"{model_name}: model not found. Run training first."
-    return f"{model_name}: Landmark v2 ready ({len(self.classes)} classes)"
+    model_kind = (
+      self.active_model_info.kind
+      if self.active_model_info else "model")
+    return f"{model_name}: {model_kind} ready ({len(self.classes)} classes)"
 
   def _set_current_word(self, word: str) -> None:
     max_width = self.current_word_label.winfo_width()
@@ -307,7 +310,11 @@ class GestureDetectStudio(tk.Tk):
       return
 
     try:
-      self.camera = CameraController(self.model, self.classes, self.device)
+      self.camera = CameraController(
+        self.model,
+        self.classes,
+        self.device,
+        self.active_model_info)
     except Exception as exc:
       messagebox.showerror("MediaPipe error", str(exc))
       return
@@ -322,8 +329,11 @@ class GestureDetectStudio(tk.Tk):
     self.start_button.configure(state=tk.DISABLED)
     self.stop_button.configure(state=tk.NORMAL)
     self.status_label.configure(text=f"Camera running | device: {self.device}")
+    sequence_length = (
+      self.active_model_info.sequence_length
+      if self.active_model_info else config.SEQUENCE_LENGTH)
     self.last_output_label.configure(
-      text=f"Warming up: 0/{config.LANDMARK_V2_SEQUENCE_LENGTH} frames")
+      text=f"Warming up: 0/{sequence_length} frames")
     self.after(0, self._update_frame)
 
   def on_model_selected(self, _event=None) -> None:
